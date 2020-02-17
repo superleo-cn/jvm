@@ -1,0 +1,45 @@
+# maven ignore
+build/
+*.jar
+*.war
+*.zip
+*.tar
+*.tar.gz
+.gradle
+target
+mybatis-generator
+generatorConfig.xml
+mybatisGeneratorinit.properties
+gradle
+out
+
+# eclipse ignore
+.settings/
+.project
+.classpath
+
+# idea ignore
+.idea
+*.ipr
+*.iml
+*.iws
+
+# temp ignore
+release.properties
+pom.xml.releaseBackup
+pid
+*.log
+*.cache
+*.diff
+*.patch
+*.tmp
+*.java~
+*.properties~
+*.xml~
+
+# system ignore
+.DS_Store
+Thumbs.db
+
+
+
