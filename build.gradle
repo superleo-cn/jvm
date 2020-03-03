@@ -6,6 +6,7 @@ group 'java.poplar'
 version '1.0-SNAPSHOT'
 
 sourceCompatibility = 1.8
+targetCompatibility = 1.8
 
 repositories {
     mavenCentral()
@@ -16,4 +17,10 @@ dependencies {
     // https://mvnrepository.com/artifact/mysql/mysql-connector-java
     compile group: 'mysql', name: 'mysql-connector-java', version: '5.1.38'
     compile group: 'cglib', name: 'cglib', version: '3.3.0'
+}
+
+// 对于新的项目来说，最后把gradlew和gradlew都放入到代码仓库，方便后面的开发人员使用
+task wrapper2(type: Wrapper) {
+    gradleVersion = '5.2.1'
+    distributionType = 'all'
 }

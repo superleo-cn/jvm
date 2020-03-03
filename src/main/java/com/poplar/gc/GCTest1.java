@@ -1,5 +1,9 @@
 package com.poplar.gc;
 
+import java.lang.management.GarbageCollectorMXBean;
+import java.lang.management.ManagementFactory;
+import java.util.List;
+
 /**
  * 1、首先，GC又分为minor GC 和 Full GC（major GC）。Java堆内存分为新生代和老年代，新生代中又分为1个eden区和两个Survior区域。
  * <p>
@@ -26,6 +30,8 @@ public class GCTest1 {
     */
 
     public static void main(String[] args) {
+        printGCList();
+        System.out.println("=================");
         int size = 1024 * 1024;
         System.out.println("000000");
         byte[] bytes1 = new byte[2 * size];
@@ -38,18 +44,26 @@ public class GCTest1 {
         /*
 
         为啥byte3和byte4都设置2M 会执行 fullGC 呢？
+        首先默认情况下使用的是UseParallelGC，里面涉及到一个Ergonomics，简单可以理解为为了达到最大吞吐量而自适应调整对硬堆的大小。
+        如果使用UseSerialGC或UseParNewGC就不会有FullGC出现了
+
         在发生MinorGC之前，虚拟机会先检查老年代最大可利用的连续空间是否大于新生代所有对象的总空间。
         如果大于则进行Minor GC，如果小于则看HandlePromotionFailure设置是否是允许担保失败（不允许则直接FullGC）
         如果允许，那么会继续检查老年代最大可利用的连续空间是否大于历次晋升到老年代对象的平均大小，如果大于
         则尝试minor gc （如果尝试失败也会触发Full GC），如果小于则进行Full GC。
         这里full gc的reason是Ergonomics，是因为开启了UseAdaptiveSizePolicy，jvm自己进行自适应调整引发的full gc: 目的是减少Minor GC的次数
         因为YoungGen的使用率已经很高了
-         */
 
+        注意: 如果此时把Xmx改大，也能避免UseParallelGC下导致的GC情况。
+
+        -XX:+UseAdaptiveSizePolicy配合参数-XX:AdaptiveSizePolicyOutputInterval=N(N表示每次间隔次数打印输出)来查看详细情况
+        默认情况下，一个代增长或缩小是按照固定百分比，这样有助于达到指定大小。默认增加以 20% 的速率，缩小以 5%。也可以自己设定
+         */
 
            /*
         为啥byte3和byte4都设置3M就不会执行 fullGC 呢？
-        因为2+2+3=7M加上系统自动生成的一些对象，在Eden假设是足够保存了。接下来在分配一个3m的byte4，是无论如何也存不下了，这个时候就直接让
+        因为2+2+3=7M加上系统自动生成的一些对象，在Eden假设是足够保存了。接下来在分配一个3m的byte4，是无论如何也存不下了，这个时候根据担保分配机制
+        就直接跳过新生代，到了老年代进行分配了
          */
         System.out.println("444444");
         //当需要分配内存的对象的大小超出了新生代的容量时，对象会被直接分配到老年代
@@ -70,5 +84,33 @@ public class GCTest1 {
          Metaspace       used 3225K, capacity 4496K, committed 4864K, reserved 1056768K
          class space    used 350K, capacity 388K, committed 512K, reserved 1048576K
          */
+    }
+
+    // 打印 young/old 代默认所使用的 collector
+    /*
+
+    PS 开头的系列 collector 是 Java5u6 开始引入的。按照 R 大的说法，这之前的 collector 都是在一个框架内开发的，
+    所以 young/old 代的 collector 可以任意搭配，但 PS 系列与后来的 G1 不是在这个框架内的，所以只能单独使用。
+
+    使用 UseSerialGC 时 young 代的 collector 是 Copy，这是单线程的，PS Scavenge 与 ParNew 分别对其并行化，至于这两个并行 young 代 collector 的区别呢？这里再引用 R 大的回复：
+	1.	PS以前是广度优先顺序来遍历对象图的，JDK6的时候改为默认用深度优先顺序遍历，并留有一个UseDepthFirstScavengeOrder参数来选择是用深度还是广度优先。在JDK6u18之后这个参数被去掉，PS变为只用深度优先遍历。ParNew则是一直都只用广度优先顺序来遍历
+	2.	PS完整实现了adaptive size policy，而ParNew及“分代式GC框架”内的其它GC都没有实现完（倒不是不能实现，就是麻烦+没人力资源去做）。所以千万千万别在用ParNew+CMS的组合下用UseAdaptiveSizePolicy，请只在使用UseParallelGC或UseParallelOldGC的时候用它。
+	3.	由于在“分代式GC框架”内，ParNew可以跟CMS搭配使用，而ParallelScavenge不能。当时ParNew GC被从Exact VM移植到HotSpot VM的最大原因就是为了跟CMS搭配使用。
+	4.	在PS成为主要的throughput GC之后，它还实现了针对NUMA的优化；而ParNew一直没有得到NUMA优化的实现。
+如果你对上面所说的 mark/sweep/compact 这些名词不了解，建议参考下面这篇文章：
+	•	https://plumbr.io/handbook/garbage-collection-algorithms-implementations
+
+
+     */
+    public static void printGCList() {
+        try {
+            List<GarbageCollectorMXBean> gcMxBeans = ManagementFactory.getGarbageCollectorMXBeans();
+            for (GarbageCollectorMXBean gcMxBean : gcMxBeans) {
+                System.out.println(gcMxBean.getName());
+            }
+        } catch (Exception exp) {
+            System.err.println(exp);
+        }
+
     }
 }
